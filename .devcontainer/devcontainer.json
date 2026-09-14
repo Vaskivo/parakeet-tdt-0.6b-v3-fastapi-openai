@@ -1,0 +1,67 @@
+{
+    "name": "Existing Dockerfile",
+    "build": {
+        "context": "..",
+        "dockerfile": "../Dockerfile.gpu"
+    },
+
+    // required by `docker-outside-of-docker`, so that the docker compose files work correctly.
+    "workspaceFolder": "${localWorkspaceFolder}",
+    "workspaceMount": "source=${localWorkspaceFolder},target=${localWorkspaceFolder},type=bind",
+
+    "mounts": [
+        // mounts pi config and data folders
+        "source=${localEnv:HOME}/.pi,target=/home/parakeet/.pi,type=bind",
+        // mount to share clipboard with host
+        "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind",
+        // specifically for this repo
+        "source=${localEnv:HOME}/.cache/huggingface,target=/home/parakeet/.cache/huggingface,type=bind"
+    ],
+
+    "containerEnv": {
+        // the contianer needs to be aware of the host's X11 display
+        "DISPLAY": "${localEnv:DISPLAY}",
+        // for Tavily extension in Pi
+        "TAVILY_API_KEY": "${localEnv:TAVILY_API_KEY}",
+        // for plannotator extension in PI
+        "PLANNOTATOR_REMOTE": "1",
+        "PLANNOTATOR_PORT": "9999"
+    },
+
+	// forwarding planotator port
+    "forwardPorts": [9999],
+
+    "runArgs": ["--gpus", "all", "--network", "host"],
+
+    "features": {
+        "ghcr.io/devcontainers/features/git:1": {},
+        "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {"moby": false},
+        "ghcr.io/devcontainers/features/common-utils:2": {
+            "installZsh": false
+        }
+    },
+
+    "postCreateCommand": "bash .devcontainer/postCreateCommand.sh",
+
+    // Allow devcontainer user to use docker without sudo.
+    // It's actually the host's docker because of docker-outside-of-docker
+    "postStartCommand": "sudo chmod 666 /var/run/docker.sock",
+
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "bash"
+            },
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "ms-python.debugpy",
+                "johnpapa.vscode-peacock",
+                "streetsidesoftware.code-spell-checker",
+                "mechatroner.rainbow-csv"
+            ]
+        }
+    },
+
+    "updateRemoteUserUID": true
+}
