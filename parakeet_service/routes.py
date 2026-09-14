@@ -10,8 +10,10 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import psutil
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, Response
+
+from .security import require_auth
 
 # Project root (parakeet_service/ is one level below it).
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -279,18 +281,18 @@ def healthz(request: Request):
 # interface that the legacy app.py exposes, so Docker (CMD ["python",
 # "server.py"]) can offer http://localhost:5092/ out of the box.
 
-@router.get("/", include_in_schema=False)
+@router.get("/", include_in_schema=False, dependencies=[Depends(require_auth)])
 def webui_index() -> HTMLResponse:
     index_path = _TEMPLATES_DIR / "index.html"
     return HTMLResponse(index_path.read_text(encoding="utf-8"))
 
 
-@router.get("/parakeet.png", include_in_schema=False)
+@router.get("/parakeet.png", include_in_schema=False, dependencies=[Depends(require_auth)])
 def webui_logo() -> FileResponse:
     return FileResponse(str(_LOGO_PATH), media_type="image/png")
 
 
-@router.get("/status", include_in_schema=False)
+@router.get("/status", include_in_schema=False, dependencies=[Depends(require_auth)])
 def webui_status() -> Dict[str, Any]:
     # The optimized service processes each request synchronously inside the
     # worker pool and does not expose per-job progress, so report idle. The
@@ -299,7 +301,7 @@ def webui_status() -> Dict[str, Any]:
     return {"status": "idle"}
 
 
-@router.get("/metrics", include_in_schema=False)
+@router.get("/metrics", include_in_schema=False, dependencies=[Depends(require_auth)])
 def webui_metrics() -> Dict[str, Any]:
     memory = psutil.virtual_memory()
     return {
@@ -310,7 +312,7 @@ def webui_metrics() -> Dict[str, Any]:
     }
 
 
-@router.post("/v1/audio/transcriptions")
+@router.post("/v1/audio/transcriptions", dependencies=[Depends(require_auth)])
 async def transcribe(
     request: Request,
     file: UploadFile = File(...),
@@ -387,7 +389,7 @@ async def transcribe(
     return JSONResponse({"text": full_text})
 
 
-@router.post("/v1/audio/transcriptions/batch")
+@router.post("/v1/audio/transcriptions/batch", dependencies=[Depends(require_auth)])
 async def transcribe_batch(
     request: Request,
     files: List[UploadFile] = File(...),

@@ -53,6 +53,13 @@ ENV PARAKEET_MAX_BATCH_SIZE=4
 ENV PARAKEET_BATCH_WINDOW_MS=4
 ENV PARAKEET_ORT_INTRA_THREADS=1
 ENV PARAKEET_AUDIO_WORKERS=8
+# Authentication (disabled by default). Set at runtime to require credentials:
+#   API_KEY          -> Authorization: Bearer <key> or X-API-Key: <key>
+#   UI_USER+UI_PASSWORD -> Authorization: Basic <base64(user:password)> (browser)
+# Both /health and /healthz stay unauthenticated for the HEALTHCHECK below.
+ENV API_KEY=
+ENV UI_USER=
+ENV UI_PASSWORD=
 
 EXPOSE 5092
 

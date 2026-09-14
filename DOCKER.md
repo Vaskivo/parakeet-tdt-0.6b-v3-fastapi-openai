@@ -48,6 +48,11 @@ docker run -d --name parakeet-gpu -p 5092:5092 --gpus all \
 |----------|---------|-------------|
 | `HF_HOME` | `/app/models` | HuggingFace model cache |
 | `HF_HUB_CACHE` | `/app/models` | HuggingFace hub cache |
+| `API_KEY` | *(unset)* | When set, requires `Authorization: Bearer <key>` or `X-API-Key: <key>` on all routes except `/health` and `/healthz`. Unset = open |
+| `UI_USER` | *(unset)* | Browser UI username (HTTP Basic auth); must be set together with `UI_PASSWORD` |
+| `UI_PASSWORD` | *(unset)* | Browser UI password (HTTP Basic auth); must be set together with `UI_USER` |
+
+See the [Authentication](README.md#-authentication) section in the main README for details.
 
 ### Persistent Model Cache
 
@@ -76,11 +81,13 @@ docker volume rm parakeet-models
 ## Testing
 
 ```bash
-# Check health
+# Check health (always unauthenticated)
 curl http://localhost:5092/health
 
-# Transcribe audio (OpenAI-compatible)
+# Transcribe audio (OpenAI-compatible). Add the Authorization header
+# only when API_KEY is set.
 curl -X POST http://localhost:5092/v1/audio/transcriptions \
+    -H "Authorization: Bearer $API_KEY" \
     -F "file=@audio.mp3" \
     -F "model=parakeet-tdt-0.6b-v3"
 ```

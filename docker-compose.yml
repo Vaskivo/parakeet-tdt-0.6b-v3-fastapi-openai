@@ -16,6 +16,13 @@ services:
       PARAKEET_BATCH_WINDOW_MS: "4"
       PARAKEET_ORT_INTRA_THREADS: "1"
       PARAKEET_AUDIO_WORKERS: "8"
+      # --- Authentication (disabled by default) ---------------------------
+      # Set API_KEY for programmatic clients (Authorization: Bearer / X-API-Key).
+      # Set UI_USER + UI_PASSWORD for browser login (Authorization: Basic).
+      # /health and /healthz stay open for the healthcheck below.
+      # API_KEY: "change-me-to-a-long-random-secret"
+      # UI_USER: "admin"
+      # UI_PASSWORD: "change-me"
     ports:
       - "5092:5092"
     volumes:
@@ -43,10 +50,16 @@ services:
     image: parakeet-tdt:cpu
     container_name: parakeet-cpu
     profiles: ["cpu"]
+    env_file:
+      - .env
     environment:
       PARAKEET_USE_GPU: "false"
       PARAKEET_DEFAULT_MODEL: parakeet-tdt-0.6b-v3
       PARAKEET_BATCHED: "0"
+      # --- Authentication (disabled by default) ---------------------------
+      # API_KEY: "change-me-to-a-long-random-secret"
+      # UI_USER: "admin"
+      # UI_PASSWORD: "change-me"
     ports:
       - "5092:5092"
     volumes:

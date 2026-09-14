@@ -11,6 +11,7 @@ from .batchworker import build_worker
 from .config import AUDIO_WORKERS, DEFAULT_MODEL, logger
 from .model import get_model, load_model
 from .routes import router
+from .security import AuthMiddleware, is_auth_enabled
 
 
 def _shutdown_pool(pool: ThreadPoolExecutor) -> None:
@@ -49,8 +50,27 @@ def create_app() -> FastAPI:
             "Parakeet TDT 0.6B v3."
         ),
         lifespan=lifespan,
+        # Docs (/docs, /redoc, /openapi.json) are served and protected by the
+        # same credentials as everything else via AuthMiddleware (added below).
+        # Their "Try it out" calls carry the caller's credentials (click
+        # "Authorize" and paste the API_KEY as Bearer).
+        docs_url="/docs",
+        redoc_url="/redoc",
+        openapi_url="/openapi.json",
     )
     app.include_router(router)
+    # AuthMiddleware is added LAST so Starlette wraps it as the outermost
+    # layer: it runs before routing and therefore also protects FastAPI's
+    # built-in docs (/docs, /redoc, /openapi.json) and any mounted sub-app,
+    # none of which are covered by router-level dependencies. /health and
+    # /healthz stay open for orchestrators and the Docker HEALTHCHECK.
+    app.add_middleware(AuthMiddleware)
+    if is_auth_enabled():
+        logger.info(
+            "Authentication enabled: /docs, /redoc, /openapi.json and all "
+            "API/UI routes require credentials. /health and /healthz remain "
+            "open for orchestrators and the Docker HEALTHCHECK."
+        )
     return app
 
 

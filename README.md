@@ -245,6 +245,66 @@ Access it at: **[http://127.0.0.1:5092](http://127.0.0.1:5092)**
 
 The web interface includes a dropdown menu to select between INT8, FP16, and FP32 model variants.
 
+## 🔐 Authentication
+
+By default the server is **open** (no credentials configured) — the same behavior as before, convenient for local and trusted deployments. Configure one or more credentials to require authentication on every route except `/health` and `/healthz` (which stay open for orchestrators, load-balancers, and the Docker `HEALTHCHECK`).
+
+You may configure any combination of:
+
+| Variable | Required with | Accepted via |
+|---|---|---|
+| `API_KEY` | — | `Authorization: Bearer <key>` and `X-API-Key: <key>` (programmatic clients) |
+| `UI_USER` + `UI_PASSWORD` | both together | `Authorization: Basic <base64(user:password)>` (browser native login dialog) |
+
+Each credential is **independent** — configure none (open), `API_KEY` only (clients), `UI_USER`+`UI_PASSWORD` only (browser), or both. On every protected request, a presented credential is validated against the store matching its scheme; a credential with no matching configured store is rejected (no fallback), and a request with no credential gets `401`.
+
+### Browser (the web UI)
+
+To log in to `http://127.0.0.1:5092/` (and `/docs`, `/redoc`, `/openapi.json`, `/parakeet.png`, `/status`, `/metrics`) from a browser, set the UI credentials:
+
+```bash
+UI_USER=admin
+UI_PASSWORD=choose-a-password
+```
+
+Browse to `http://127.0.0.1:5092/` → the browser shows its native login dialog → enter `admin` / your password. It caches the credentials for the session, so `/`, `/docs`, `/redoc`, the web UI's same-origin polling of `/status` and `/metrics`, and assets all load afterward. The Swagger UI's **Try it out** button is a separate concern: once `/docs` loads (via Basic auth), click **Authorize** and paste your `API_KEY` (Bearer) — that authenticates the API calls made from the page.
+
+### API clients
+
+For programmatic clients (OpenAI SDK, cURL, etc.), set `API_KEY`:
+
+```bash
+API_KEY=$(python -c "import secrets; print(secrets.token_urlsafe(32))")
+```
+
+```bash
+curl http://127.0.0.1:5092/v1/audio/transcriptions \
+  -H "Authorization: Bearer $API_KEY" \
+  -F file=@audio.mp3 -F model=parakeet-tdt-0.6b-v3 -F response_format=text
+```
+
+The OpenAI Python client passes it through with `default_headers={"Authorization": f"Bearer {API_KEY}"}` (or set `X-API-Key`).
+
+### Both at once
+
+For a deployment that humans browse and scripts call, set all three:
+
+```bash
+API_KEY=$(python -c "import secrets; print(secrets.token_urlsafe(32))")
+UI_USER=admin
+UI_PASSWORD=choose-a-password
+```
+
+Browsers use Basic; API clients use Bearer/X-API-Key — each valid on its own.
+
+### Notes
+
+- Comparisons are constant-time (`hmac.compare_digest`) to avoid timing side channels.
+- `401` responses include `WWW-Authenticate` advertising every configured scheme (e.g. `Basic realm="Parakeet TDT API", Bearer`).
+- `UI_USER` set without `UI_PASSWORD` logs a warning and leaves Basic auth disabled (no silent weakening).
+- `/health` and `/healthz` are always unauthenticated (the Docker `HEALTHCHECK` hits `/healthz`).
+- Interactive docs (`/docs`, `/redoc`, `/openapi.json`) are also protected and require credentials to load. Use the **Authorize** button to send your `API_KEY` for **Try it out**.
+
 ## 🔌 Open WebUI Integration
 
 **This project provides out-of-the-box compatibility with [Open WebUI](https://openwebui.com/)**, serving as a drop-in replacement for OpenAI's speech-to-text API. Experience lightning-fast, local transcription across 25 languages with automatic language detection!
@@ -262,7 +322,7 @@ The web interface includes a dropdown menu to select between INT8, FP16, and FP3
     - Navigate to **Open WebUI Settings -> Audio**
     - Set **STT Engine** to `OpenAI`
     - Set **OpenAI Base URL** to `http://127.0.0.1:5092/v1`
-    - Set **OpenAI API Key** to `sk-no-key-required`
+    - Set **OpenAI API Key** to `sk-no-key-required` (or your `API_KEY` value if [Authentication](#-authentication) is enabled)
     - Set **STT Model** to `parakeet-tdt-0.6b-v3`
     - Click **Save**
 

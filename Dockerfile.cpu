@@ -43,6 +43,13 @@ ENV PYTHONUNBUFFERED=1
 ENV PARAKEET_USE_GPU=false
 ENV PARAKEET_DEFAULT_MODEL=parakeet-tdt-0.6b-v3
 ENV PARAKEET_BATCHED=0
+# Authentication (disabled by default). Set at runtime to require credentials:
+#   API_KEY          -> Authorization: Bearer <key> or X-API-Key: <key>
+#   UI_USER+UI_PASSWORD -> Authorization: Basic <base64(user:password)> (browser)
+# Both /health and /healthz stay unauthenticated for the HEALTHCHECK below.
+ENV API_KEY=
+ENV UI_USER=
+ENV UI_PASSWORD=
 
 EXPOSE 5092
 
