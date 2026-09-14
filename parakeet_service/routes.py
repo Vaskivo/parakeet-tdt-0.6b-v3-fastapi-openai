@@ -6,10 +6,17 @@ import math
 import re
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+import psutil
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import JSONResponse, PlainTextResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, Response
+
+# Project root (parakeet_service/ is one level below it).
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_TEMPLATES_DIR = _PROJECT_ROOT / "templates"
+_LOGO_PATH = _PROJECT_ROOT / "parakeet.png"
 
 from .audio import load_audio
 from .chunker import auto_chunk, slice_chunks
@@ -265,6 +272,42 @@ def healthz(request: Request):
     if not getattr(request.app.state, "ready", False):
         raise HTTPException(status_code=503, detail="not ready")
     return {"status": "ok"}
+
+
+# --- Web UI ---------------------------------------------------------------
+# These routes make the optimized service serve the same drag-and-drop web
+# interface that the legacy app.py exposes, so Docker (CMD ["python",
+# "server.py"]) can offer http://localhost:5092/ out of the box.
+
+@router.get("/", include_in_schema=False)
+def webui_index() -> HTMLResponse:
+    index_path = _TEMPLATES_DIR / "index.html"
+    return HTMLResponse(index_path.read_text(encoding="utf-8"))
+
+
+@router.get("/parakeet.png", include_in_schema=False)
+def webui_logo() -> FileResponse:
+    return FileResponse(str(_LOGO_PATH), media_type="image/png")
+
+
+@router.get("/status", include_in_schema=False)
+def webui_status() -> Dict[str, Any]:
+    # The optimized service processes each request synchronously inside the
+    # worker pool and does not expose per-job progress, so report idle. The
+    # web UI polls this endpoint while a transcription is in flight and simply
+    # ignores anything that is not "processing".
+    return {"status": "idle"}
+
+
+@router.get("/metrics", include_in_schema=False)
+def webui_metrics() -> Dict[str, Any]:
+    memory = psutil.virtual_memory()
+    return {
+        "cpu_percent": psutil.cpu_percent(interval=None),
+        "ram_percent": memory.percent,
+        "ram_used_gb": round(memory.used / (1024**3), 2),
+        "ram_total_gb": round(memory.total / (1024**3), 2),
+    }
 
 
 @router.post("/v1/audio/transcriptions")
